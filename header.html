@@ -1,0 +1,30 @@
+<html>
+<head>
+<style>
+body * { font-family: sans-serif; font-size: 12px; }
+table { border-collapse: collapse; float:left; margin-right: 10px; }
+tr  { border: 1px solid transparent; }
+td, th { padding: 3px; text-align: center; width: 1.5em; border: 1px solid rgba(0,0,0,0.05); }
+td.ATP, td.CT, td.PT { color: rgba(0,0,0,0.3); }
+td:nth-child(3),td:nth-child(7) 
+{ border-right: 10px solid #fff; }
+.legend span { display: block; padding: 5px;  }
+.ATP.waiting, .CT.waiting_for_patient, .PT.waiting_to_arrive { background: #eee; }
+.ATP.ct_atp_meeting, .CT.ct_atp_meeting { background: #aff; }
+.ATP.meeting_with_patient, .PT.meeting_with_atp  { background: #8d8; }
+.CT.meeting_with_patient, .PT.meeting_with_ct { background: #9bc; }
+.CT.waiting_for_atp, .PT.waiting_for_atp { background: #f88; }
+.PT.checking_in, .PT.checking_out { background: #ccc; }
+.PT.waiting_for_ct { background: #fa6; }
+</style>
+</head>
+<body>
+<div class="legend">
+<span class=" PT checking_in"> PT checking_in, checking_out</span>
+<span class=" PT waiting_for_ct"> PT waiting_for_ct</span>
+<span class=" CT meeting_with_patient"> CT meeting_with_patient</span>
+<span class=" CT waiting_for_atp"> CT waiting_for_atp, PT waiting_for_atp</span>
+<span class=" ATP ct_atp_meeting"> ATP CT meeting</span>
+<span class=" ATP meeting_with_patient"> ATP meeting_with_patient </span>
+</div>
+<br />
