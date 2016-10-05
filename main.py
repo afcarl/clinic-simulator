@@ -21,16 +21,17 @@ def main():
     sim = Simulation(distributions)
     sim.initialize(params);
     
-    sim.step()
     of = open('output.html', 'w')
     for line in open('header.html', 'r'):
         of.write(line)
     of.write('<table>\n')
     of.write('<thead><tr>%s</tr></thead>\n' % sim.table_header())
+    
+    sim.step()
     while not sim.is_done():
         sim.step()
         of.write('<tr>%s</tr>\n' % sim.table_row())
-    of.write('<tr>%s</tr>\n' % sim.table_row())
+    
     of.write('</table>\n')
     of.close()
 
