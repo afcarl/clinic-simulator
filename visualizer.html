@@ -2,6 +2,7 @@
 <style>
 html { box-sizing: border-box; }
 *, *:before, *:after { box-sizing: inherit; }
+body { font-size: 12px; }
 #chart { position: relative; overflow-x: scroll; }
 #labels { position: absolute; left: 40px; height: 100%; font-size: 12px; }
 #labels div { position:absolute; font-size: 12px; width: 35px; padding-left: 5px; border-left: 1px solid rgba(0,0,0,0.1); height: 100%; }
@@ -9,10 +10,31 @@ html { box-sizing: border-box; }
 #legend span.event { display: inline-block; width: 15px; height: 15px; vertical-align: text-bottom;}
 #legend span.label { display: inline-block; margin-left: 5px; font-size: 10px; line-height: 15px; height: 15px; }
 .timeline-group { margin-top: 15px; }
-.timeline { position: relative; height: 15px; background: rgba(0,0,0,0.03); }
-.timeline.odd { background: rgba(0,0,0,0.06); }
+
+.timeline { position: relative; height: 15px;}
+.timeline.odd { }
+
+#atp .timeline     { background: rgba(0,192,0,0.03); }
+#atp .timeline.odd { background: rgba(0,192,0,0.06); }
+#ct .timeline     { background: rgba(0,0,192,0.03); }
+#ct .timeline.odd { background: rgba(0,0,192,0.06); }
+#pt .timeline     { background: rgba(192,0,0,0.03); }
+#pt .timeline.odd { background: rgba(192,0,0,0.06); }
+
 .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px; }
 .timeline .event { opacity: 0.9; position: absolute; top: 0; font-size: 10px; line-height: 15px; height: 15px; border-radius: 2px; background: #ccc; text-align: center; border: 1px solid #fff; box-shadow: inset 0 0 1px #000; border-bottom: 0; border-right: 0; color: rgba(0,0,0,0.5); }
+
+p { margin-bottom: 5px; }
+
+#params { }
+#params fieldset { width: 33%; display: inline-block; vertical-align: top; margin: 0; border: 0;}
+#params fieldset legend { margin:0; padding:0; font-weight: bold; }
+#distributions { }
+.form-control {display: block; height: 20px; }
+.form-control label { display: inline-block; width: 8em; }
+.distribution label { width: auto; text-align: right; padding: 0 5px; }
+.distribution label:first-of-type { width: 8em; text-align: left; padding: 0; }
+
 .event.ct_atp_meeting { background: #b6b; }
 .event.pt_meeting { background: #6c6; }
 .event.ct_pt_meeting { background: #6bb; }
@@ -23,20 +45,25 @@ html { box-sizing: border-box; }
 .event.checking_out { background: #eee; }
 </style>
 <form id="params">
-<fieldset>
-<label># patients</label>
-<input type="text" name="n_pt" value="12" />
-<label># attending physicians</label>
-<input type="text" name="n_atp" value="2"  />
-<label># clinical teams</label>
-<input type="text" name="n_ct" value="4"  />
+<fieldset id="simulation"><legend>Simulation</legend>
+<div class="form-control"><label># patients</label>
+<input type="text" name="n_pt" value="12" size="3" /></div>
+<div class="form-control"><label># attending</label>
+<input type="text" name="n_atp" value="2"  size="3" /></div>
+<div class="form-control"><label># clinical teams</label>
+<input type="text" name="n_ct" value="4" size="3" /></div>
+<div id="summary"></div>
 </fieldset>
-<fieldset><legend>Scheduler options</legend>
-<label>patient group size</label>
-<input type="text" name="group_size" value="3" />
-<label>group spacing (minutes)</label>
-<input type="text" name="spacing" value="15" />
-<input type="submit" />
+<fieldset id="distributions">
+  <legend>Distributions</legend>
+</fieldset>
+<fieldset id="scheduler"><legend>Scheduler</legend>
+<div class="form-control"><label>group size</label>
+<input type="text" name="group_size" value="3" size="3" /></div>
+<div class="form-control"><label>spacing (minutes)</label>
+<input type="text" name="spacing" value="15" size="3" /></div>
+<div class="form-control"><input type="submit" /></div>
+<div id="schedule"></div>
 </fieldset>
 </form>
 <div id="legend">
@@ -51,6 +78,40 @@ html { box-sizing: border-box; }
 <div id="chart"></div>
 
 <script>
+
+var default_distributions = [
+  {'name': 'arrival_delay',  'min':  0, 'max':  60, 'mean': 10, 'type': 'pois'},
+  {'name': 'checkin',        'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'},
+  {'name': 'ct_round',       'min': 10, 'max':  60, 'mean': 25, 'type': 'pois'},
+  {'name': 'ct_atp_meeting', 'min':  2, 'max':   8, 'mean':  4, 'type': 'pois'},
+  {'name': 'atp_round',      'min': 12, 'max':  18, 'mean': 15, 'type': 'pois'},
+  {'name': 'checkout',       'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'}
+];
+
+var dist_fields = ['min', 'max', 'mean']
+for (var i in default_distributions) {
+  var dist = default_distributions[i];
+  var distDiv = document.createElement('div');
+  distDiv.className = 'distribution form-control';
+  var label = document.createElement('label');
+  label.appendChild(document.createTextNode(dist.name));
+  label.className = 'dist-label';
+  distDiv.appendChild(label);
+  for (var j in dist_fields) {
+    var label = document.createElement('label');
+    label.appendChild(document.createTextNode(dist_fields[j]));
+    distDiv.appendChild(label);
+    var input = document.createElement('input');
+    input.setAttribute('type', 'text');
+    input.setAttribute('name', dist.name + '_' + dist_fields[j]);
+    input.setAttribute('value', dist[dist_fields[j]]);
+    input.setAttribute('size', 3);
+    distDiv.appendChild(input);
+  }
+  document.getElementById('distributions').appendChild(distDiv);
+}
+
+
 var label_offset = 40;
 var scale = 7; // px per minute
 var action = 'http://localhost:8888/';
@@ -178,6 +239,15 @@ function visualize_data(data) {
         timeline.appendChild(create_event('checking_out', checkout_begin, event.time - checkout_begin));
     }
     document.getElementById('pt').appendChild(timeline);
+
+    document.getElementById('summary').innerHTML = '<p><strong>Averages</strong></p>' +
+      'Waiting for attending: ' + data.summary.pt_wait_atp_mean.toFixed(1) + ' minutes<br />' +
+      'Waiting room time: ' + data.summary.pt_wait_ct_mean.toFixed(1) + ' minutes';
+
+    document.getElementById('schedule').innerHTML = '<p><strong>Schedule</strong></p>' +
+      'Schedule: ' + data.params.schedule;
+
+
   }
 
 }

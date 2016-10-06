@@ -18,14 +18,21 @@ class MainHandler(tornado.web.RequestHandler):
     def post(self):
         self.set_header("Content-Type", "application/javascript")
 
-        n_pt = int(self.get_body_arguments('n_pt')[0])
-        n_atp = int(self.get_body_arguments('n_atp')[0])
-        n_ct = int(self.get_body_arguments('n_ct')[0])
-        group_size = int(self.get_body_arguments('group_size')[0])
-        spacing = int(self.get_body_arguments('spacing')[0])
-
-        sched = schedule(n_pt, group_size, spacing)
-        params = { 'n_atp': n_atp, 'n_ct': n_ct, 'schedule': sched }
+        get = lambda name: self.get_body_arguments(name)[0]
+        fields = ['n_pt', 'n_atp', 'n_ct', 'group_size', 'spacing']
+        dist_names = ['arrival_delay', 'checkin', 'ct_round', 'ct_atp_meeting', 'atp_round', 'checkout']
+        dist_fields = ['min', 'max', 'mean']
+        distributions = {}
+        for name in dist_names:
+            distributions[name] = {}
+            for field in dist_fields:
+                distributions[name][field] = int(get(name + '_' + field))
+            distributions[name]['type'] = 'pois'
+        params = {}
+        for field in fields:
+            params[field] = int(get(field))
+        params['distributions'] = distributions
+        params['schedule'] = schedule(params['n_pt'], params['group_size'], params['spacing'])
 
         sim = Simulation()
         sim.initialize(params);
@@ -38,5 +45,6 @@ if __name__ == "__main__":
     app = tornado.web.Application([
         (r"/", MainHandler),
     ])
+    print 'started'
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()

@@ -79,13 +79,15 @@ class ClinicalTeam(Actor):
     def run(self, sim):
         if self.time_remaining > 0:
             return
+        if self.state == 'group_huddle':
+            self.set_state('waiting_for_patient', sim.time)
         if self.state == 'meeting_with_patient':
             self.set_state('waiting_for_atp', sim.time)
             self.atp_wait_begin = sim.time
         elif self.state == 'ct_atp_meeting':
             self.set_state('waiting_for_patient', sim.time)
         if self.state == 'waiting_for_atp':
-            available = sim.get_actors(name='ATP', state='waiting')
+            available = sim.get_actors(name='ATP', state='waiting_for_ct')
             if len(available) > 0:
                 self.atp_wait_times.append(sim.time - self.atp_wait_begin)
                 duration = sim.get_duration('ct_atp_meeting')
@@ -105,32 +107,34 @@ class AttendingPhysician(Actor):
         if self.time_remaining > 0:
             return
         if self.state == 'meeting_with_patient':
-            self.set_state('waiting', sim.time)
+            self.set_state('waiting_for_ct', sim.time)
         elif self.state == 'ct_atp_meeting':
             self.set_state('waiting_for_patient', sim.time)
 
 # manages the actors
 class Simulation(object):
 
-    distributions = {
-        'arrival_delay':  {'type': 'poisson', 'offset':  0, 'lambda': 30},
-        'checkin':        {'type': 'poisson', 'offset':  2, 'lambda':  4},
-        'ct_round':       {'type': 'poisson', 'offset': 15, 'lambda': 10},
-        'ct_atp_meeting': {'type': 'poisson', 'offset':  2, 'lambda':  3},
-        'atp_round':      {'type': 'poisson', 'offset': 12, 'lambda':  5},
-        'checkout':       {'type': 'poisson', 'offset':  1, 'lambda':  5}
+    default_distributions = {
+        'arrival_delay':  {'min':  0, 'max':  60, 'mean': 15, 'type': 'pois'},
+        'checkin':        {'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'},
+        'ct_round':       {'min': 15, 'max':  45, 'mean': 25, 'type': 'pois'},
+        'ct_atp_meeting': {'min':  2, 'max':   8, 'mean':  4, 'type': 'pois'},
+        'atp_round':      {'min': 12, 'max':  18, 'mean': 15, 'type': 'pois'},
+        'checkout':       {'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'}
     }
 
-    def __init__(self, distributions=None):
-        if not distributions is None:
-            self.distributions = distributions
+    def __init__(self):
+        pass
 
     def get_duration(self, name):
         dist = self.distributions[name]
-        if dist['type'] == 'poisson':
-            return dist['offset'] + random.poisson(dist['lambda'])
-        elif dist['type'] == 'uniform':
-            return random.uniform(dist['min'], dist['max'])
+        if dist['type'] == 'pois':
+            duration = dist['min'] + random.poisson(dist['mean'] - dist['min'])
+        elif dist['type'] == 'unif':
+            duration = random.uniform(dist['min'], dist['max'])
+        elif dist['type'] == 'exp':
+            duration = dist['min'] + random.exponential(dist['mean'] - dist['min'])
+        return max(dist['min'], min(dist['max'], duration))
 
     def get_actors(self, name, state):
         return [actor for actor in self.actors if actor.name == name and actor.state == state]
@@ -142,24 +146,26 @@ class Simulation(object):
         for actor in self.actors:
             if actor.time_remaining > 0:
                 actor.time_remaining -= stepsize
+        self.time += stepsize
         for actor in self.actors:
             actor.run(self)
-        self.time += stepsize
 
     def initialize(self, params):
+        self.params = params
+        self.distributions = params['distributions'] if 'distributions' in params else self.default_distributions
         self.time = 0
         self.actors = []
         for i in range(params['n_atp']):
             atp = AttendingPhysician('ATP %d' % i)
-            atp.set_state('waiting', 0)
+            atp.set_state('waiting_for_ct', 0)
             self.actors.append(atp)
         for i in range(params['n_ct']):
             ct = ClinicalTeam('CT %d' % i)
-            ct.set_state('waiting_for_patient', 0)
+            ct.set_state('group_huddle', 0, 15)
             self.actors.append(ct)
         for i, time in enumerate(params['schedule']):
             pt = Patient('PT %d' % i)
-            arrival_time = time - (30) + self.get_duration('arrival_delay')
+            arrival_time = time + self.get_duration('arrival_delay')
             pt.set_state('waiting_to_arrive', 0, arrival_time)
             self.actors.append(pt)
 
@@ -177,7 +183,14 @@ class Simulation(object):
                 pt_wait_atp.append(actor.atp_wait_time)
             if actor.name == 'CT':
                 ct_wait_atp += actor.atp_wait_times
-        return { 'pt_wait_ct': pt_wait_ct, 'pt_wait_atp': pt_wait_atp, 'ct_wait_atp': ct_wait_atp }
+        return {
+            'pt_wait_ct': pt_wait_ct,
+            'pt_wait_ct_mean': np.mean(pt_wait_ct),
+            'pt_wait_atp': pt_wait_atp,
+            'pt_wait_atp_mean': np.mean(pt_wait_atp),
+            'ct_wait_atp': ct_wait_atp,
+            'ct_wait_atp_mean': np.mean(ct_wait_atp)
+        }
 
     def get_json(self):
         pt_data, ct_data, atp_data = [ ], [ ], [ ]
@@ -188,4 +201,7 @@ class Simulation(object):
                 ct_data.append({'id': actor.id, 'events': actor.event_log })
             if actor.name == 'ATP':
                 atp_data.append({'id': actor.id, 'events': actor.event_log })
-        return json.dumps({ 'pt_data': pt_data, 'ct_data': ct_data, 'atp_data': atp_data, 'end_time': self.time }, indent=2)
+        return json.dumps({
+            'params': self.params, 'summary': self.get_summary(),
+            'pt_data': pt_data, 'ct_data': ct_data, 'atp_data': atp_data,
+            'end_time': self.time }, indent=2)
