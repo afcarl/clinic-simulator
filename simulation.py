@@ -1,116 +1,97 @@
 import numpy as np
+import json
 from numpy import random
 
-# actors have state with time_remaining
-# once time_remaining <= 0, the state can change during run()
-# or if the state is updated by another actor
 class Actor(object):
 
     def __init__(self, name, id):
-        self.name = name
-        self.id = id
-        self.log = []
+        self.name           = name
+        self.state          = None
         self.time_remaining = 0
+        self.id             = id
+        self.event_log      = []
 
-    # set initial state and time_remaining
-    def initialize(self, time, state, duration=0):
-        self.state = state
-        self.log.append({'event': 'begin_' + state, 'time': time})
-        self.time_remaining = duration
-
-    # add final log entry
-    def finalize(self, time):
-        self.log.append({'event': 'end_' + self.state, 'time': time})
-        self.time_remaining = 0
-
-    # update state, time_remaining and insert new log entry
-    def set_state(self, time, state, duration=0):
+    def set_state(self, state, time, duration=0):
         if not self.state is None:
-            self.log.append({'event': 'end_' + self.state, 'time': time})
+            self.event_log.append({'name': 'end_' + self.state, 'time': time})
         self.state = state
-        self.log.append({'event': 'begin_' + state, 'time': time})
+        if duration >= 0:
+            self.event_log.append({'name': 'begin_' + state, 'time': time})
         self.time_remaining = duration
 
-    def run(self):
+    def run(self, sim):
         pass
 
-# PT wait to arrive, then check in, wait/meet available CT
-# then wait/meet ATP who has met with corresponding CT
 class Patient(Actor):
 
     def __init__(self, id):
         Actor.__init__(self, 'PT', id)
+        self.ct_wait_begin  = 0
+        self.ct_wait_time   = 0
+        self.atp_wait_begin = 0
+        self.atp_wait_time  = 0
 
     def run(self, sim):
-       
         if self.time_remaining > 0:
             return
-
         if self.state == 'waiting_to_arrive':
-            self.set_state(sim.time, 'checking_in', sim.get_duration('checkin'))
-
+            self.set_state('checking_in', sim.time, sim.get_duration('checkin'))
         elif self.state == 'checking_in':
-            self.set_state(sim.time, 'waiting_for_ct')
-
+            self.set_state('waiting_for_ct', sim.time)
+            self.ct_wait_begin = sim.time
         elif self.state == 'meeting_with_ct':
-            self.set_state(sim.time, 'waiting_for_atp')
-
+            self.set_state('waiting_for_atp', sim.time)
+            self.atp_wait_begin = sim.time
         elif self.state == 'meeting_with_atp':
-            self.set_state(sim.time, 'checking_out', sim.get_duration('checkout'))
-
+            self.set_state('checking_out', sim.time, sim.get_duration('checkout'))
         elif self.state == 'checking_out':
-            self.state = 'checked_out'
-            self.finalize(sim.time)
-
+            self.set_state('checked_out', sim.time, -1)
         if self.state == 'waiting_for_ct':
             available = sim.get_actors(name='CT', state='waiting_for_patient')
             if len(available) > 0:
+                self.ct_wait_time = sim.time - self.ct_wait_begin
                 duration = sim.get_duration('ct_round')
-                available[0].set_state(sim.time, 'meeting_with_patient', duration)
+                available[0].set_state('meeting_with_patient', sim.time, duration)
                 available[0].pt_id = self.id
                 self.ct_id = available[0].id
-                self.set_state(sim.time, 'meeting_with_ct', duration)
-
+                self.set_state('meeting_with_ct', sim.time, duration)
         if self.state == 'waiting_for_atp':
             available = sim.get_actors(name='ATP', state='waiting_for_patient')
             if len(available) > 0:
                 # check that patient is in ATP pt_ids, i.e.,
-                # the ATP has met with the CT that previously met with the patient
+                # the ATP met with the CT that previously met with the patient
                 for i, atp in enumerate(available):
                     if self.id in atp.pt_ids:
+                        self.atp_wait_time = sim.time - self.atp_wait_begin
                         duration = sim.get_duration('atp_round')
-                        available[i].set_state(sim.time, 'meeting_with_patient', duration)
-                        self.set_state(sim.time, 'meeting_with_atp', duration)
+                        available[i].set_state('meeting_with_patient', sim.time, duration)
+                        self.set_state('meeting_with_atp', sim.time, duration)
                         break
 
-# CT is on standby (waiting_for_patient) until PT needs to be seen
-# after PT meeting, CT waits for ATP
-# after ATP meeting, CT returns to standby 
 class ClinicalTeam(Actor):
 
     def __init__(self, id):
-
         Actor.__init__(self, 'CT', id)
-        self.pt_id = ''
+        self.pt_id          = ''
+        self.atp_wait_times = [ ]
+        self.atp_wait_begin = 0
 
     def run(self, sim):
-        
         if self.time_remaining > 0:
             return
-
         if self.state == 'meeting_with_patient':
-            self.set_state(sim.time, 'waiting_for_atp')
-
+            self.set_state('waiting_for_atp', sim.time)
+            self.atp_wait_begin = sim.time
         elif self.state == 'ct_atp_meeting':
-            self.set_state(sim.time, 'waiting_for_patient')
-
+            self.set_state('waiting_for_patient', sim.time)
         if self.state == 'waiting_for_atp':
             available = sim.get_actors(name='ATP', state='waiting')
             if len(available) > 0:
+                self.atp_wait_times.append(sim.time - self.atp_wait_begin)
                 duration = sim.get_duration('ct_atp_meeting')
-                available[0].set_state(sim.time, 'ct_atp_meeting', duration)
+                available[0].set_state('ct_atp_meeting', sim.time, duration)
                 available[0].pt_ids.append(self.pt_id)
-                self.set_state(sim.time, 'ct_atp_meeting', duration)
+                self.set_state('ct_atp_meeting', sim.time, duration)
 
 # ATP is on standby until CT needs to meet
 # after CT meeting, ATP can only meet with patient
@@ -124,50 +105,62 @@ class AttendingPhysician(Actor):
         if self.time_remaining > 0:
             return
         if self.state == 'meeting_with_patient':
-            self.set_state(sim.time, 'waiting')
+            self.set_state('waiting', sim.time)
         elif self.state == 'ct_atp_meeting':
-            self.set_state(sim.time, 'waiting_for_patient')
+            self.set_state('waiting_for_patient', sim.time)
 
 # manages the actors
 class Simulation(object):
 
-    def __init__(self, distributions):
-        self.distributions = distributions
+    distributions = {
+        'arrival_delay':  {'type': 'poisson', 'offset':  0, 'lambda': 30},
+        'checkin':        {'type': 'poisson', 'offset':  2, 'lambda':  4},
+        'ct_round':       {'type': 'poisson', 'offset': 15, 'lambda': 10},
+        'ct_atp_meeting': {'type': 'poisson', 'offset':  2, 'lambda':  3},
+        'atp_round':      {'type': 'poisson', 'offset': 12, 'lambda':  5},
+        'checkout':       {'type': 'poisson', 'offset':  1, 'lambda':  5}
+    }
+
+    def __init__(self, distributions=None):
+        if not distributions is None:
+            self.distributions = distributions
 
     def get_duration(self, name):
         dist = self.distributions[name]
         if dist['type'] == 'poisson':
             return dist['offset'] + random.poisson(dist['lambda'])
+        elif dist['type'] == 'uniform':
+            return random.uniform(dist['min'], dist['max'])
 
     def get_actors(self, name, state):
         return [actor for actor in self.actors if actor.name == name and actor.state == state]
 
-    def step(self):
-        times = [actor.time_remaining for actor in self.actors if actor.time_remaining > 0]
-        delta = min(times) if len(times) > 0 else 1
-        delta = 1
+    def step(self, stepsize=None):
+        if stepsize is None:
+            times = [actor.time_remaining for actor in self.actors if actor.time_remaining > 0]
+            stepsize = min(times) if len(times) > 0 else 1
         for actor in self.actors:
             if actor.time_remaining > 0:
-                actor.time_remaining -= delta
+                actor.time_remaining -= stepsize
         for actor in self.actors:
             actor.run(self)
-        self.time += delta
+        self.time += stepsize
 
     def initialize(self, params):
         self.time = 0
         self.actors = []
         for i in range(params['n_atp']):
             atp = AttendingPhysician('ATP %d' % i)
-            atp.initialize(0, 'waiting')
+            atp.set_state('waiting', 0)
             self.actors.append(atp)
         for i in range(params['n_ct']):
             ct = ClinicalTeam('CT %d' % i)
-            ct.initialize(0, 'waiting_for_patient')
+            ct.set_state('waiting_for_patient', 0)
             self.actors.append(ct)
         for i, time in enumerate(params['schedule']):
             pt = Patient('PT %d' % i)
             arrival_time = time - (30) + self.get_duration('arrival_delay')
-            pt.initialize(0, 'waiting_to_arrive', arrival_time)
+            pt.set_state('waiting_to_arrive', 0, arrival_time)
             self.actors.append(pt)
 
     def is_done(self):
@@ -175,18 +168,24 @@ class Simulation(object):
             if actor.name == 'PT' and actor.state != 'checked_out':
                 return False
         return True
-    
-    def format_time(self, minutes):
-        return 
 
-    def table_header(self):
-        columns = ['<th>Time</th>']
+    def get_summary(self):
+        pt_wait_ct, pt_wait_atp, ct_wait_atp = [ ], [ ], [ ]
         for actor in self.actors:
-            columns.append('<th>%s</th>' % actor.id)
-        return ''.join(columns)
+            if actor.name == 'PT':
+                pt_wait_ct.append(actor.ct_wait_time)
+                pt_wait_atp.append(actor.atp_wait_time)
+            if actor.name == 'CT':
+                ct_wait_atp += actor.atp_wait_times
+        return { 'pt_wait_ct': pt_wait_ct, 'pt_wait_atp': pt_wait_atp, 'ct_wait_atp': ct_wait_atp }
 
-    def table_row(self):
-        columns = ['<td>%d:%02d</td>' % (self.time / 60 + 5, self.time % 60)]
+    def get_json(self):
+        pt_data, ct_data, atp_data = [ ], [ ], [ ]
         for actor in self.actors:
-            columns.append('<td class="%s %s">%2d</td>' % (actor.name, actor.state, actor.time_remaining))
-        return ''.join(columns)
+            if actor.name == 'PT':
+                pt_data.append({'id': actor.id, 'events': actor.event_log })
+            if actor.name == 'CT':
+                ct_data.append({'id': actor.id, 'events': actor.event_log })
+            if actor.name == 'ATP':
+                atp_data.append({'id': actor.id, 'events': actor.event_log })
+        return json.dumps({ 'pt_data': pt_data, 'ct_data': ct_data, 'atp_data': atp_data, 'end_time': self.time }, indent=2)
