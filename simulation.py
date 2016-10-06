@@ -87,15 +87,6 @@ class ClinicalTeam(Actor):
             self.atp_wait_begin = sim.time
         elif self.state == 'ct_atp_meeting':
             self.set_state('waiting_for_patient', sim.time)
-        if self.state == 'waiting_for_atp':
-            available = sim.get_actors(name='ATP', state='waiting_for_ct')
-            if len(available) > 0:
-                index = random.randint(0, len(available))
-                self.atp_wait_times.append(sim.time - self.atp_wait_begin)
-                duration = sim.get_duration('ct_atp_meeting')
-                available[index].set_state('ct_atp_meeting', sim.time, duration)
-                available[index].pt_ids.append(self.pt_id)
-                self.set_state('ct_atp_meeting', sim.time, duration)
 
 # ATP is on standby until CT needs to meet
 # after CT meeting, ATP can only meet with patient
@@ -110,6 +101,17 @@ class AttendingPhysician(Actor):
             return
         if self.state == 'meeting_with_patient':
             self.set_state('waiting_for_ct', sim.time)
+        if self.state == 'waiting_for_ct':
+            cts = sim.get_actors('CT', 'waiting_for_atp')
+            if len(cts) > 0:
+                # sort by atp_wait time in decreasing order
+                cts.sort(key=lambda ct: sim.time - ct.atp_wait_begin, reverse=True)
+                duration = sim.get_duration('ct_atp_meeting')
+                cts[0].atp_wait_times.append(sim.time - cts[0].atp_wait_begin)
+                self.pt_ids.append(cts[0].pt_id)
+                self.set_state('ct_atp_meeting', sim.time, duration)
+                cts[0].set_state('ct_atp_meeting', sim.time, duration)
+
         elif self.state == 'ct_atp_meeting':
             self.set_state('waiting_for_patient', sim.time)
 
@@ -117,9 +119,9 @@ class AttendingPhysician(Actor):
 class Simulation(object):
 
     default_distributions = {
-        'arrival_delay':  {'min':  0, 'max':  60, 'mean': 15, 'type': 'pois'},
+        'arrival_delay':  {'min':  0, 'max':  60, 'mean': 10, 'type': 'pois'},
         'checkin':        {'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'},
-        'ct_round':       {'min': 15, 'max':  45, 'mean': 25, 'type': 'pois'},
+        'ct_round':       {'min': 10, 'max':  60, 'mean': 25, 'type': 'pois'},
         'ct_atp_meeting': {'min':  2, 'max':   8, 'mean':  4, 'type': 'pois'},
         'atp_round':      {'min': 12, 'max':  18, 'mean': 15, 'type': 'pois'},
         'checkout':       {'min':  2, 'max':  10, 'mean':  5, 'type': 'pois'}
@@ -149,6 +151,8 @@ class Simulation(object):
             if actor.time_remaining > 0:
                 actor.time_remaining -= stepsize
         self.time += stepsize
+        for actor in self.actors:
+            actor.run(self)
         for actor in self.actors:
             actor.run(self)
 
@@ -191,7 +195,8 @@ class Simulation(object):
             'pt_wait_atp': pt_wait_atp,
             'pt_wait_atp_mean': np.mean(pt_wait_atp),
             'ct_wait_atp': ct_wait_atp,
-            'ct_wait_atp_mean': np.mean(ct_wait_atp)
+            'ct_wait_atp_mean': np.mean(ct_wait_atp),
+            'end_time': self.time
         }
 
     def get_json(self):
