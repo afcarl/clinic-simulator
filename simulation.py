@@ -49,11 +49,12 @@ class Patient(Actor):
         if self.state == 'waiting_for_ct':
             available = sim.get_actors(name='CT', state='waiting_for_patient')
             if len(available) > 0:
+                index = random.randint(0, len(available))
                 self.ct_wait_time = sim.time - self.ct_wait_begin
                 duration = sim.get_duration('ct_round')
-                available[0].set_state('meeting_with_patient', sim.time, duration)
-                available[0].pt_id = self.id
-                self.ct_id = available[0].id
+                available[index].set_state('meeting_with_patient', sim.time, duration)
+                available[index].pt_id = self.id
+                self.ct_id = available[index].id
                 self.set_state('meeting_with_ct', sim.time, duration)
         if self.state == 'waiting_for_atp':
             available = sim.get_actors(name='ATP', state='waiting_for_patient')
@@ -89,10 +90,11 @@ class ClinicalTeam(Actor):
         if self.state == 'waiting_for_atp':
             available = sim.get_actors(name='ATP', state='waiting_for_ct')
             if len(available) > 0:
+                index = random.randint(0, len(available))
                 self.atp_wait_times.append(sim.time - self.atp_wait_begin)
                 duration = sim.get_duration('ct_atp_meeting')
-                available[0].set_state('ct_atp_meeting', sim.time, duration)
-                available[0].pt_ids.append(self.pt_id)
+                available[index].set_state('ct_atp_meeting', sim.time, duration)
+                available[index].pt_ids.append(self.pt_id)
                 self.set_state('ct_atp_meeting', sim.time, duration)
 
 # ATP is on standby until CT needs to meet

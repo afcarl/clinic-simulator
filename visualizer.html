@@ -245,7 +245,7 @@ function visualize_data(data) {
       'Waiting room time: ' + data.summary.pt_wait_ct_mean.toFixed(1) + ' minutes';
 
     document.getElementById('schedule').innerHTML = '<p><strong>Schedule</strong></p>' +
-      'Schedule: ' + data.params.schedule;
+      '' + data.params.schedule.join(', ');
 
 
   }
