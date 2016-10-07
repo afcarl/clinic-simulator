@@ -43,6 +43,9 @@ p { margin-bottom: 5px; }
 .event.waiting_for_ct { background: #fa6; }
 .event.checking_in { background: #eee; }
 .event.checking_out { background: #eee; }
+
+.histograms img { display: inline-block; width: 25%; }
+#plots .params { }
 </style>
 <form id="params">
 <fieldset id="simulation"><legend>Simulation</legend>
@@ -62,7 +65,8 @@ p { margin-bottom: 5px; }
 <input type="text" name="group_size" value="3" size="3" /></div>
 <div class="form-control"><label>spacing (minutes)</label>
 <input type="text" name="spacing" value="15" size="3" /></div>
-<div class="form-control"><input type="submit" /></div>
+<div class="form-control"><button id="btn_get_sample">Get Sample</button>
+<button id="btn_do_mc">Run Monte Carlo</button></div>
 <div id="schedule"></div>
 </fieldset>
 </form>
@@ -75,6 +79,7 @@ p { margin-bottom: 5px; }
 <span class="event pt_meeting"></span><span class="label">PT/ATP meeting</span>
 <span class="event checking_out"></span><span class="label">Check-out</span>
 </div>
+<div id="plots"></div>
 <div id="chart"></div>
 
 <script>
@@ -114,13 +119,32 @@ for (var i in default_distributions) {
 
 var label_offset = 40;
 var scale = 7; // px per minute
-var action = 'http://localhost:8888/';
 
-$("#params").submit(function(event) {
+$("#btn_get_sample").click(function(event) {
   event.preventDefault();
-  $.post(action, $(this).serialize(), function(response) {
+  $.post('/', $('#params').serialize(), function(response) {
     console.log(response);
     visualize_data(response);
+  }, 'json');
+});
+
+$("#btn_do_mc").click(function(event) {
+  event.preventDefault();
+  var params = $('#params').serialize();
+  var paramsDiv = document.createElement('div');
+  paramsDiv.className = 'params';
+  paramsDiv.appendChild(document.createTextNode(params.split("&").join(', ')));
+  document.getElementById('plots').appendChild(paramsDiv);
+  $.post('/mc', params, function(response) {
+    console.log(response);
+    var div = document.createElement('div');
+    div.className = 'histograms';
+    for (var i in response) {
+      var img = document.createElement('img');
+      img.setAttribute('src', 'data:image/png;base64,' + response[i]);
+      div.appendChild(img);
+    }
+    document.getElementById('plots').appendChild(div);
   }, 'json');
 });
 
