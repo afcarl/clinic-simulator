@@ -58,21 +58,22 @@ class Scheduler(object):
 
         pts, cts, atps = [ ], [ ], [ ]
 
-        self.scheduled_arrival_times = [i / sim.params['group_size'] * sim.params['group_interval'] for i in range(sim.params['n_pt'])]
+        self.scheduled_apt_times = [15 + i / sim.params['group_size'] * sim.params['group_interval'] for i in range(sim.params['n_pt'])]
 
-        for i, time in enumerate(self.scheduled_arrival_times):
-            pt = Patient('PT %02d' % i)
-            arrival_time = time + sim.get_duration('pt_arrival_delay')
+        for i, time in enumerate(self.scheduled_apt_times):
+            pt = Patient('PT_%02d' % (i+1))
+            arrival_time = time - 15 + sim.get_duration('pt_arrival_delay')
             pt.set_state('waiting_to_arrive', 0, arrival_time)
+            pt.meta['scheduled_time'] = time
             pts.append(pt)
 
         for i in range(sim.params['n_ct']):
-            ct = ClinicalTeam('CT %02d' % i)
+            ct = ClinicalTeam('CT_%02d' % (i+1))
             ct.set_state('group_huddle', 0, 15)
             cts.append(ct)
 
         for i in range(sim.params['n_atp']):
-            atp = AttendingPhysician('ATP %02d' % i)
+            atp = AttendingPhysician('ATP_%02d' % (i+1))
             atp.set_state('waiting_for_first_ct', 0)
             atps.append(atp)
 
@@ -92,7 +93,19 @@ class Scheduler(object):
                 ct.meta['assigned_atp'] = atps[atp_idx].id
                 # ATP inherits PTs from the CT
                 atps[atp_idx].assigned_pt_ids += ct.assigned_pt_ids
-                atp_idx = (atp_idx + 1) % sim.params['n_atp'];
+                atp_idx = (atp_idx + 1) % sim.params['n_atp']
+
+        # add pt_ids to ct metadata
+        for i, ct in enumerate(cts):
+            ct.meta['assigned_pt_ids'] = ct.assigned_pt_ids
+
+        # add pt_ids to atp metadata
+        for i, atp in enumerate(atps):
+            atp.meta['assigned_pt_ids'] = atp.assigned_pt_ids
+            atp.meta['assigned_ct_ids'] = atp.assigned_ct_ids
+            for j, pt in enumerate(pts):
+                if pt.id in atp.assigned_pt_ids:
+                    pt.meta['assigned_atp'] = atp.id
 
         sim.actors = atps + cts + pts
 

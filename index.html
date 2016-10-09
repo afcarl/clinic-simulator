@@ -3,34 +3,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <head>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<!--
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
--->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
 <style>
 #timeline-viewer { position: relative; background: #fff; width: 100%; margin-bottom: 50px; }
 #timeline-legend { position: absolute; top: 0; left: 0px; height: 25px; }
 #timeline-labels { position: absolute; left: 40px; height: 100%; font-size: 12px; }
-#timeline-labels .label { position: absolute; width: 35px; top: 25px; padding-left: 5px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; z-index: 5; color: #000; font-weight: normal; }
+#timeline-viewer .label { color: #000; padding: 0; font-weight: normal; }
+#timeline-labels .label { position: absolute; width: 35px; top: 25px; padding-left: 5px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; }
 #timeline-legend .entry { display: inline-block; height: 15px; }
-#timeline-legend .marker { display: inline-block; width: 15px; height: 15px; vertical-align: middle; line-height: 15px; height: 15px; }
-#timeline-legend .label { display: inline-block; margin: 0 5px; font-size: 10px; line-height: 15px; height: 15px; color: #000; font-weight: normal; }
+#timeline-legend .marker { display: inline-block; width: 15px; height: 15px; vertical-align: middle; line-height: 15px; height: 15px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);}
+#timeline-legend .label { display: inline-block; margin: 0 5px; font-size: 10px; line-height: 15px; height: 15px;  }
 #timeline-groups { position: relative; top: 40px; }
 #timeline-groups .timeline-group { margin-top: 15px; }
-#timeline-viewer .timeline { position: relative; height: 15px; background-color: #f0f0f0;}
-#timeline-viewer .timeline.odd { background-color: #e0e0e0; }
-#timeline-viewer .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px; color: #000; font-weight: normal; }
-#timeline-viewer .event { position: absolute; top: 0; font-size: 9px; line-height: 15px; height: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); border-bottom: 0; border-right: 0; color: rgba(0,0,0,0.3); }
+#timeline-viewer .timeline { position: relative; height: 15px; }
+#timeline-viewer .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px;  }
+#timeline-viewer .event { position: absolute; top: 0; font-size: 9px; line-height: 15px; height: 15px; text-align: center; border: 1px solid #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); border-bottom: 0; border-right: 0; color: rgba(0,0,0,0.3); }
 
-#timeline-viewer .waiting_for_first_ct { background: #ffa; opacity: 0.5; }
+#timeline-viewer .waiting_for_first_ct { background: hsl(40,80%,80%);  ; opacity: 0.5; }
 #timeline-viewer .waiting_to_arrive { background: #eee; opacity: 0.5; }
 #timeline-viewer .group_huddle { background: #eee; }
-#timeline-viewer .ct_atp_meeting { background: #6bb; }
-#timeline-viewer .pt_ct_meeting { background: #58c; }
-#timeline-viewer .pt_atp_meeting { background: #6b6; }
-#timeline-viewer .waiting_for_atp { background: #c55; }
-#timeline-viewer .waiting_for_ct { background: #eb5; }
+#timeline-viewer .pt_ct_meeting { background: hsl(220,50%,60%); }
+#timeline-viewer .ct_atp_meeting { background: hsl(180,50%,60%); }
+#timeline-viewer .pt_atp_meeting { background: hsl(120,50%,60%); }
+#timeline-viewer .waiting_for_atp { background: hsl(0,50%,60%); }
+#timeline-viewer .waiting_for_ct { background: hsl(30,80%,60%); }
 #timeline-viewer .waiting_for_pt { background: #999; }
 #timeline-viewer .checking_in { background: #ccc; }
 #timeline-viewer .checking_out { background: #ccc; }
@@ -50,6 +49,10 @@
 
 #plots { }
 #plots .plot { width: 45%; height: 300px; margin-right: 10px; margin-bottom: 10px; display: inline-block; }
+
+.tooltip-inner {
+    max-width: 500px;
+}
 </style>
 </head>
 <body role="document">
@@ -222,8 +225,8 @@ APP.plot_mc_result = function(times) {
           type: 'box',
           y: yData[i],
           name: ids[i],
-          boxpoints: 'all',
-          jitter: 0.3,
+          boxpoints: 'all',//'suspectedoutliers',
+          jitter: 0.25,
           whiskerwidth: 0.2,
           fillcolor: fillColors[i],
           marker: { size: 2, color: colors[i] },
@@ -262,7 +265,6 @@ APP.plot_mc_result = function(times) {
 
 };
 
-
 function visualize_data(sim) {
 
   var label_offset = 40;
@@ -270,6 +272,7 @@ function visualize_data(sim) {
 
   var timeline_viewer = document.getElementById('timeline-viewer');
   timeline_viewer.innerHTML = '';
+
   var timeline_labels = document.createElement('div');
   timeline_labels.id = 'timeline-labels';
   // create timeline labels
@@ -308,32 +311,38 @@ function visualize_data(sim) {
   timeline_groups.id = 'timeline-groups';
   var states = [ ];
 
-  for (var i in actor_groups) {
+  actor_groups.forEach(function(actor_group, i) {
     var timeline_group = document.createElement('div');
     timeline_group.className = 'timeline-group';
     timeline_group.id = actor_types[i] + '_timelines';
-    for (var j in actor_groups[i]) {
-      var actor = actor_groups[i][j];
+    actor_group.forEach(function(actor) {
       var timeline = document.createElement('div');
       timeline.className = 'timeline';
       var label = document.createElement('div');
       label.className = 'label';
       label.appendChild(document.createTextNode(actor.id));
+      label.setAttribute('data-toggle', 'tooltip');
+      label.setAttribute('data-placement', 'right');
+      label.setAttribute('title', JSON.stringify(actor.meta));
       timeline.appendChild(label);
-      for (var k in actor.timeline) {
+      actor.timeline.forEach(function(state, k) {
         var state = actor.timeline[k];
         if (state.duration > 0) {
           var event = create_event(state.state, state.start, state.duration);
+          if (state.meta != undefined) {
+            event.setAttribute('data-toggle', 'tooltip');
+            event.setAttribute('data-placement', 'bottom');
+            event.setAttribute('title', JSON.stringify(state.meta));
+          }
           timeline.appendChild(event);
           if (states.indexOf(state.state) == -1)
             states.push(state.state);
         }
-      }
-      if (j % 2 == 0) timeline.className += ' odd';
-      timeline_group.appendChild(timeline)
-    }
+      });
+      timeline_group.appendChild(timeline);
+    });
     timeline_groups.appendChild(timeline_group);
-  }
+  });
 
   var timeline_legend = document.createElement('div');
   timeline_legend.id = 'timeline-legend';
@@ -354,6 +363,9 @@ function visualize_data(sim) {
   timeline_viewer.appendChild(timeline_labels);
   timeline_viewer.appendChild(timeline_groups);
 
+  $('[data-toggle="tooltip"]').tooltip();
 }
+
 </script>
+
 </body>
