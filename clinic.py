@@ -43,7 +43,7 @@ class AttendingPhysician(Actor):
         self.assigned_ct_ids = [ ]
         self.assigned_pt_ids = [ ]
         self.can_see_pt_ids = [ ] # atp can only see pt after meeting with ct
-        self.time_in_state = {'waiting_for_ct': 0}
+        self.time_in_state = {'waiting_for_ct': 0, 'waiting_for_first_ct': 0}
 
     def update(self, sim):
         if self.state == 'pt_atp_meeting':
@@ -73,7 +73,7 @@ class Scheduler(object):
 
         for i in range(sim.params['n_atp']):
             atp = AttendingPhysician('ATP %02d' % i)
-            atp.set_state('waiting_for_ct', 0)
+            atp.set_state('waiting_for_first_ct', 0)
             atps.append(atp)
 
         # assign CTs to patients using round-robin
@@ -142,7 +142,7 @@ class Scheduler(object):
 
         # schedule ct_atp meetings
         cts_waiting_for_atp = sim.get_actors('ClinicalTeam', 'waiting_for_atp', sort_by_time=True)
-        available_atps = sim.get_actors('AttendingPhysician', 'waiting_for_ct', sort_by_time=True)
+        available_atps = sim.get_actors('AttendingPhysician', ['waiting_for_ct', 'waiting_for_first_ct'], sort_by_time=True)
         for ct in cts_waiting_for_atp:
             for i, atp in enumerate(available_atps):
                 if len(atp.assigned_pt_ids) == 0:
