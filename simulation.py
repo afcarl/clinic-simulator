@@ -51,9 +51,11 @@ class Simulation(object):
         duration = random.beta(a, b) * (dist['max'] - dist['min']) + dist['min']
         return int(duration) if integer else duration
 
-    def get_actors(self, class_name, state, sort_by_time=False, shuffle=False):
+    def get_actors(self, class_name, states, sort_by_time=False, shuffle=False):
+        if type(states) not in [list, tuple]:
+            states = (states,)
         actors = [actor for actor in self.actors if actor.__class__.__name__ ==
-                  class_name and actor.state == state]
+                  class_name and actor.state in states]
         if shuffle:
             np.random.shuffle(actors)
         elif sort_by_time:
