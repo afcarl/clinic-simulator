@@ -40,6 +40,7 @@ class AttendingPhysician(Actor):
 
     def __init__(self, id):
         Actor.__init__(self, id)
+        self.assigned_ct_ids = [ ]
         self.assigned_pt_ids = [ ]
         self.can_see_pt_ids = [ ] # atp can only see pt after meeting with ct
         self.time_in_state = {'waiting_for_ct': 0}
@@ -75,15 +76,22 @@ class Scheduler(object):
             atp.set_state('waiting_for_ct', 0)
             atps.append(atp)
 
-        # assign patients using round-robin
+        # assign CTs to patients using round-robin
         if sim.params['assign_pts'] == 1:
-            ct_idx, atp_idx = 0, 0
+            ct_idx = 0
             for i, pt in enumerate(pts):
                 cts[ct_idx].assigned_pt_ids.append(pt.id)
-                atps[atp_idx].assigned_pt_ids.append(pt.id)
                 pt.meta['assigned_ct'] = cts[ct_idx].id
-                pt.meta['assigned_atp'] = atps[atp_idx].id
                 ct_idx = (ct_idx + 1) % sim.params['n_ct'];
+
+        # assign ATPs to CTs using round-robin
+        if sim.params['assign_cts'] == 1:
+            atp_idx = 0
+            for i, ct in enumerate(cts):
+                atps[atp_idx].assigned_ct_ids.append(ct.id)
+                ct.meta['assigned_atp'] = atps[atp_idx].id
+                # ATP inherits PTs from the CT
+                atps[atp_idx].assigned_pt_ids += ct.assigned_pt_ids
                 atp_idx = (atp_idx + 1) % sim.params['n_atp'];
 
         sim.actors = atps + cts + pts
@@ -179,7 +187,9 @@ class ClinicSimulation(Simulation):
             {'name': 'n_ct', 'label': 'Clinical Teams', 'default': 4, 'type': 'int'},
             {'name': 'group_size', 'label': 'Size of groups', 'default': 3, 'type': 'int'},
             {'name': 'group_interval', 'label': 'Arrival interval ', 'default': 15, 'type': 'int'},
-            {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 1, 'type': 'int'}
+            {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 1, 'type': 'int'},
+            {'name': 'assign_cts', 'label': 'Pre-assign CTs', 'default': 1, 'type': 'int'}
+
         ]
         distributions = [
             {'name': 'pt_arrival_delay', 'min':  0, 'max':  60, 'mean':  5, 'variance': 30},
