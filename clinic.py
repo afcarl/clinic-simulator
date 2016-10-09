@@ -20,7 +20,6 @@ class Patient(Actor):
             self.set_state('checked_out', sim.time, -1)
 
 
-
 class ClinicalTeam(Actor):
 
     def __init__(self, id):
@@ -43,7 +42,7 @@ class AttendingPhysician(Actor):
         Actor.__init__(self, id)
         self.assigned_pt_ids = [ ]
         self.can_see_pt_ids = [ ] # atp can only see pt after meeting with ct
-        self.time_in_state = {'waiting_for_pt': 0, 'waiting_for_ct': 0}
+        self.time_in_state = {'waiting_for_ct': 0}
 
     def update(self, sim):
         if self.state == 'pt_atp_meeting':

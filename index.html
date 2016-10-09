@@ -46,7 +46,7 @@
 #monte-carlo-results li span { margin-right: 10px; }
 
 #plots { }
-#plots .plot { width: 45%; height: 400px; margin-right: 10px; display: inline-block; }
+#plots .plot { width: 45%; height: 300px; margin-right: 10px; margin-bottom: 10px; display: inline-block; }
 </style>
 </head>
 <body role="document">
@@ -200,57 +200,63 @@ APP.plot_mc_result = function(times) {
   var container = document.getElementById('plots');
   container.innerHTML = '';
 
-  // make plots for pt
-  var states = Object.keys(pt_times[0]);
-  for (var state_index in states) {
-    var state = states[state_index];
-    var yData = [ ];
-    var colors = [ ];
-    var fillColors = [ ];
-    for (var i in pt_times) {
-      yData.push(pt_times[i][state]);
-      var angle = 180 * i / (pt_times.length - 1) + 20;
-      colors.push('hsl('+ angle +',50%'+',50%)');
-      fillColors.push('hsla('+ angle +',50%'+',50%,0.5)');
-    }
-    var data = [];
-    for (var i in pt_ids) {
-      var result = {
-        type: 'box',
-        y: yData[i],
-        name: pt_ids[i],
-        boxpoints: 'all',
-        jitter: 0.3,
-        whiskerwidth: 0.2,
-        fillcolor: fillColors[i],
-        marker: { size: 2, color: colors[i] },
-        line: { width: 1 }
+  var make_plots = function(prefix, ids, times) {
+    var states = Object.keys(times[0]);
+    for (var state_index in states) {
+      var state = states[state_index];
+      var yData = [ ];
+      var colors = [ ];
+      var fillColors = [ ];
+      for (var i in times) {
+        yData.push(times[i][state]);
+        var angle = 180 * i / (times.length - 1) + 20;
+        colors.push('hsl('+ angle +',50%'+',50%)');
+        fillColors.push('hsla('+ angle +',50%'+',50%,0.5)');
+      }
+      var data = [];
+      for (var i in ids) {
+        var result = {
+          type: 'box',
+          y: yData[i],
+          name: ids[i],
+          boxpoints: 'all',
+          jitter: 0.3,
+          whiskerwidth: 0.2,
+          fillcolor: fillColors[i],
+          marker: { size: 2, color: colors[i] },
+          line: { width: 1 }
+        };
+        data.push(result);
+      }
+      var layout = {
+        title: state,
+        yaxis: {
+            autorange: true,
+            showgrid: true,
+            zeroline: true,
+            dtick: 5,
+            gridcolor: 'rgba(0,0,0,0.1)',
+            gridwidth: 1,
+            zerolinecolor: 'rgba(0,0,0,0.25)',
+            zerolinewidth: 1
+        },
+        margin: { l: 30, r: 20, b: 30, t: 50 },
+        paper_bgcolor: 'rgb(243, 243, 243)',
+        plot_bgcolor: 'rgb(243, 243, 243)',
+        showlegend: false
       };
-      data.push(result);
+      var plotDiv = document.createElement('div');
+      container.appendChild(plotDiv);
+      plotDiv.id = 'plt_' + prefix + '_' + state;
+      plotDiv.className = 'plot';
+      Plotly.newPlot(plotDiv.id, data, layout);
     }
-    var layout = {
-      title: state,
-      yaxis: {
-          autorange: true,
-          showgrid: true,
-          zeroline: true,
-          dtick: 5,
-          gridcolor: 'rgba(0,0,0,0.1)',
-          gridwidth: 1,
-          zerolinecolor: 'rgba(0,0,0,0.25)',
-          zerolinewidth: 1
-      },
-      margin: { l: 30, r: 20, b: 30, t: 50 },
-      paper_bgcolor: 'rgb(243, 243, 243)',
-      plot_bgcolor: 'rgb(243, 243, 243)',
-      showlegend: false
-    };
-    var plotDiv = document.createElement('div');
-    container.appendChild(plotDiv);
-    plotDiv.id = 'plt_pt_' + state;
-    plotDiv.className = 'plot';
-    Plotly.newPlot(plotDiv.id, data, layout);
-  }
+  };
+
+  make_plots('pt', pt_ids, pt_times);
+  make_plots('ct', ct_ids, ct_times);
+  make_plots('atp', atp_ids, atp_times);
+
 };
 
 
