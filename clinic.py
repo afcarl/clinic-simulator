@@ -5,13 +5,18 @@ class Patient(Actor):
 
     def __init__(self, id):
         Actor.__init__(self, id)
-        self.time_in_state = {'waiting_for_ct': 0, 'waiting_for_atp': 0}
+        self.time_in_state = {'waiting_for_ct_after': 0, 'waiting_for_atp': 0}
 
     def update(self, sim):
         if self.state == 'waiting_to_arrive':
             self.set_state('checking_in', sim.time, sim.get_duration('checkin'))
         elif self.state == 'checking_in':
-            self.set_state('waiting_for_ct', sim.time)
+            if sim.time <= self.scheduled_time:
+                self.set_state('waiting_for_ct_before', sim.time, self.scheduled_time - sim.time)
+            else:
+                self.set_state('waiting_for_ct_after', sim.time)
+        elif self.state == 'waiting_for_ct_before':
+            self.set_state('waiting_for_ct_after', sim.time)
         if self.state == 'pt_ct_meeting':
             self.set_state('waiting_for_atp', sim.time)
         if self.state == 'pt_atp_meeting':
@@ -64,6 +69,7 @@ class Scheduler(object):
             pt = Patient('PT_%02d' % (i+1))
             arrival_time = time - 15 + sim.get_duration('pt_arrival_delay')
             pt.set_state('waiting_to_arrive', 0, arrival_time)
+            pt.scheduled_time = time
             pt.meta['scheduled_time'] = time
             pts.append(pt)
 
@@ -128,7 +134,7 @@ class Scheduler(object):
             atp.can_see_pt_ids.append(ct.pt_id) # atp can only see pt after meeting with ct
 
         # schedule pt_ct_meetings
-        pts_waiting_for_ct = sim.get_actors('Patient', 'waiting_for_ct', sort_by_time=True)
+        pts_waiting_for_ct = sim.get_actors('Patient', ['waiting_for_ct_before', 'waiting_for_ct_after'], sort_by_time=True)
         available_cts = sim.get_actors('ClinicalTeam', 'waiting_for_pt', sort_by_time=True)
         for pt in pts_waiting_for_ct:
             for i, ct in enumerate(available_cts):
