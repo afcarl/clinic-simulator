@@ -11,7 +11,7 @@
 #timeline-viewer { position: relative; background: #fff; width: 100%; margin-bottom: 50px; }
 #timeline-legend { position: absolute; top: 0; left: 0px; height: 25px; }
 #timeline-labels { position: absolute; left: 40px; height: 100%; font-size: 12px; }
-#timeline-viewer .label { color: #000; padding: 0; font-weight: normal; }
+#timeline-viewer .label { color: #000; padding: 0; font-weight: normal; text-align: left; }
 #timeline-labels .label { position: absolute; width: 35px; top: 25px; padding-left: 5px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; }
 #timeline-legend .entry { display: inline-block; height: 15px; }
 #timeline-legend .marker { display: inline-block; width: 15px; height: 15px; vertical-align: middle; line-height: 15px; height: 15px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);}
@@ -22,35 +22,38 @@
 #timeline-viewer .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px;  }
 #timeline-viewer .event { position: absolute; top: 0; font-size: 9px; line-height: 15px; height: 15px; text-align: center; border: 1px solid #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); border-bottom: 0; border-right: 0; color: rgba(0,0,0,0.3); }
 
-#timeline-viewer .waiting_for_first_ct { background: hsl(40,80%,80%);  ; opacity: 0.5; }
+#timeline-viewer .waiting_for_first_ct { background: hsla(45,90%,65%,0.25); box-shadow: inset 0 0 0 1px hsl(45,90%,65%);}
 #timeline-viewer .waiting_to_arrive { background: #eee; opacity: 0.5; }
 #timeline-viewer .group_huddle { background: #eee; }
-#timeline-viewer .pt_ct_meeting { background: hsl(220,50%,60%); }
+#timeline-viewer .pt_ct_meeting { background: hsl(220,50%,60%);  }
 #timeline-viewer .ct_atp_meeting { background: hsl(180,50%,60%); }
-#timeline-viewer .pt_atp_meeting { background: hsl(120,50%,60%); }
-#timeline-viewer .waiting_for_atp { background: hsl(0,50%,60%); }
-#timeline-viewer .waiting_for_ct { background: hsl(30,80%,60%); }
-#timeline-viewer .waiting_for_pt { background: #999; }
-#timeline-viewer .checking_in { background: #ccc; }
-#timeline-viewer .checking_out { background: #ccc; }
-
-#parameter-browser { width: 600px; display: inline-block; }
+#timeline-viewer .pt_atp_meeting { background: hsl(120,50%,60%);  }
+#timeline-viewer .waiting_for_atp { background: hsla(0,80%,60%,0.25); box-shadow: inset 0 0 0 1px hsl(0,80%,60%); }
 #timeline-viewer .waiting_for_ct_before { background: hsla(45,90%,65%,0.25); box-shadow: inset 0 0 0 1px hsl(45,90%,65%);  }
 #timeline-viewer .waiting_for_ct_after { background: hsla(30,80%,60%,0.25); box-shadow: inset 0 0 0 1px hsl(30,80%,60%);  }
+#timeline-viewer .waiting_for_ct { background: hsla(30,80%,60%,0.25); box-shadow: inset 0 0 0 1px hsl(30,80%,60%);  }
+#timeline-viewer .waiting_for_pt { background: hsla(280,80%,50%,0.25); box-shadow: inset 0 0 0 1px hsl(280,80%,50%); }
+#timeline-viewer .checking_in { background: hsla(45,0%,60%,0.25); box-shadow: inset 0 0 0 1px hsl(45,0%,80%);  }
+#timeline-viewer .checking_out { background: hsla(45,0%,60%,0.25); box-shadow: inset 0 0 0 1px hsl(45,0%,80%);  }
+
 #parameter-form { }
 #parameter-form .form-field { }
-#parameter-form .form-field label { width: 130px; display: inline-block; }
+#parameter-form .form-field label { width: 140px; display: inline-block; }
 #parameter-form .form-field input { width: 30px;}
-#sim-params { display: inline-block; vertical-align:top; width:300px ; }
-#dist-params { display: inline-block; vertical-align:top; width:300px; }
-#monte-carlo-browser { display: inline-block; width: 30%; vertical-align:top; }
 #monte-carlo-form { }
 #monte-carlo-results { }
 
 #monte-carlo-results li span { margin-right: 10px; }
 
 #plots { }
-#plots .plot { width: 45%; height: 300px; margin-right: 10px; margin-bottom: 10px; display: inline-block; }
+#plots .plot { height: 300px; display: inline-block; }
+
+#plots .plot.pt.waiting_for_atp { width: 48%; }
+#plots .plot.pt.waiting_for_ct_after { width: 48%; }
+#plots .plot.ct.waiting_for_atp { width: 28%; }
+#plots .plot.ct.waiting_for_pt { width: 28%; }
+#plots .plot.atp.waiting_for_ct { width: 20%; }
+#plots .plot.atp.waiting_for_first_ct { width: 20%; }
 
 .tooltip-inner {
     max-width: 500px;
@@ -59,13 +62,14 @@
 </head>
 <body role="document">
 <div class="container-fluid" role="main">
-
-<div id="parameter-browser">
+<div class="row">
+<div id="parameter-browser" class="col-md-8">
 <form id="parameter-form"></form>
 </div>
-<div id="monte-carlo-browser">
+<div id="monte-carlo-browser" class="col-md-4">
 <form id="monte-carlo-form"></form>
 <div id="monte-carlo-results">
+</div>
 </div>
 </div>
 <div id="timeline-viewer"></div>
@@ -82,14 +86,14 @@ var APP = {
 // create form controls for simulation parameters
 APP.init_forms = function(meta) {
   // simulation parameters
-  var html = '<div id="sim-params">'
+  var html = '<div id="sim-params" class="col-md-6">'
   html += '<p>Simulation parameters</p>';
   for (var i in meta.fields) {
     var field = meta.fields[i];
     html += '<div class="form-field"><label>' + field.label + '</label><input type="text" name="' + field.name + '" value="' + field.default + '" /></div>';
   }
   html += '</div>'; // #sim-params
-  html += '<div id="dist-params">';
+  html += '<div id="dist-params" class="col-md-6">';
   html += '<p>Distributions parameters (min, max, mean, var)</p>';
   for (var i in meta.distributions) {
     var dist = meta.distributions[i];
@@ -102,8 +106,9 @@ APP.init_forms = function(meta) {
     }
     html += '</div>'; // .form-field
   }
+  html += '<button id="btn_sample" class="btn btn-sm btn-primary">Run Simulation</button> &nbsp;';
+  html += '<button id="btn_run_mc" class="btn btn-sm btn-primary">Run Monte Carlo</button>';
   html += '</div>'; // #dist-params
-  html += '<button id="btn_sample" class="btn btn-sm btn-primary">Draw sample</button>';
   document.getElementById('parameter-form').innerHTML = html;
   document.getElementById('btn_sample').addEventListener("click", function(event) {
     event.preventDefault();
@@ -115,26 +120,28 @@ APP.init_forms = function(meta) {
     }, 'json');
   });
   // Monte Carlo parameters
-  html = '<p>Monte Carlo</p><div class="form-field"><label>Name</label><input type="text" name="name" value="default" /></div>'
-  html += '<button id="btn_run_mc" class="btn btn-sm btn-primary">Run Monte Carlo</button>'
+  html = '<p>Monte Carlo Simulation</p>'
   document.getElementById('monte-carlo-form').innerHTML = html;
   document.getElementById('btn_run_mc').addEventListener("click", function(event) {
     event.preventDefault();
-    var btn = this;
-    btn.innerHTML = 'Running...';
-    btn.disabled = true;
-    var params = $('#parameter-form').serialize();
-    $.post('/monte_carlo', params, function(response) {
-      APP.mc_results.push({
-        name: $("#monte-carlo-form [name='name']").val(),
-        data: response,
-        params: params
-      });
-      APP.update_mc_results();
-      APP.plot_mc_result(response);
-      btn.innerHTML = 'Run Monte Carlo';
-      btn.disabled = false;
-    }, 'json');
+    var name = prompt("Description of parameter values", "default_config");
+    if (name != null) {
+      var btn = this;
+      btn.innerHTML = 'Running...';
+      btn.disabled = true;
+      var params = $('#parameter-form').serialize();
+      $.post('/monte_carlo', params, function(response) {
+        APP.mc_results.push({
+          name: name,
+          data: response,
+          params: params
+        });
+        APP.update_mc_results();
+        APP.plot_mc_result(response);
+        btn.innerHTML = 'Run Monte Carlo';
+        btn.disabled = false;
+      }, 'json');
+    }
   });
 
 };
@@ -143,12 +150,13 @@ APP.update_mc_results = function() {
   var div = document.getElementById('monte-carlo-results');
   div.innerHTML = '';
   var list = document.createElement('ul');
-  APP.mc_results.forEach(function(result) {
+  APP.mc_results.forEach(function(result, i) {
     var item = document.createElement('li');
     var label = document.createElement('span');
     label.appendChild(document.createTextNode(result.name));
 
     var btn_show_param = document.createElement('button');
+    btn_show_param.className = 'btn btn-default btn-xs';
     btn_show_param.appendChild(document.createTextNode('Load params'));
     btn_show_param.addEventListener("click", function(event) {
       event.preventDefault();
@@ -164,15 +172,28 @@ APP.update_mc_results = function() {
     });
 
     var btn_show_plots = document.createElement('button');
+    btn_show_plots.className = 'btn btn-default btn-xs';
     btn_show_plots.appendChild(document.createTextNode('Show plots'));
     btn_show_plots.addEventListener("click", function(event) {
       event.preventDefault();
       APP.plot_mc_result(result.data);
     });
 
+    var btn_delete = document.createElement('button');
+    btn_delete.className = 'btn btn-default btn-xs';
+    btn_delete.appendChild(document.createTextNode('Delete'));
+    btn_delete.addEventListener("click", function(event) {
+      mc_results.splice(i, 1);
+    });
+
+    var btn_group = document.createElement('div');
+    btn_group.className = 'btn-group';
+    btn_group.appendChild(btn_show_param);
+    btn_group.appendChild(btn_show_plots);
+    btn_group.appendChild(btn_delete);
+
     item.appendChild(label);
-    item.appendChild(btn_show_param);
-    item.appendChild(btn_show_plots);
+    item.appendChild(btn_group);
     list.appendChild(item);
   });
   div.appendChild(list);
@@ -256,7 +277,7 @@ APP.plot_mc_result = function(times) {
       var plotDiv = document.createElement('div');
       container.appendChild(plotDiv);
       plotDiv.id = 'plt_' + prefix + '_' + state;
-      plotDiv.className = 'plot';
+      plotDiv.className = 'plot ' + prefix + ' ' + state;
       Plotly.newPlot(plotDiv.id, data, layout);
     }
   };
