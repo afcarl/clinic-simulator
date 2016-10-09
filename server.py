@@ -14,7 +14,10 @@ def get_params(post_dict, metadata):
     params = { field['name']: int(post_dict[field['name']]) for field in metadata['fields'] }
     params['distributions'] = {}
     for dist in metadata['distributions']:
-        params['distributions'][dist['name']] = dist
+        dist_props = { }
+        for prop in ['min', 'max', 'mean', 'variance']:
+            dist_props[prop] = float(post_dict[dist['name'] + '_' + prop])
+        params['distributions'][dist['name']] = dist_props
     return params
 
 class MetaHandler(tornado.web.RequestHandler):
