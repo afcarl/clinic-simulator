@@ -179,7 +179,7 @@ class ClinicSimulation(Simulation):
             {'name': 'n_ct', 'label': 'Clinical Teams', 'default': 4, 'type': 'int'},
             {'name': 'group_size', 'label': 'Size of groups', 'default': 3, 'type': 'int'},
             {'name': 'group_interval', 'label': 'Arrival interval ', 'default': 15, 'type': 'int'},
-            {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 0, 'type': 'int'}
+            {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 1, 'type': 'int'}
         ]
         distributions = [
             {'name': 'pt_arrival_delay', 'min':  0, 'max':  60, 'mean':  5, 'variance': 30},
