@@ -166,10 +166,10 @@ function visualize_data(data) {
     document.getElementById('labels').appendChild(label);
   }
 
-  function create_event(className, time, duration) {
+  function create_event(name, start, duration) {
     var eventDiv = document.createElement('div');
     eventDiv.appendChild(document.createTextNode(duration|0));
-    eventDiv.className = 'event ' + className;
+    eventDiv.className = 'event ' + name;
     eventDiv.style.left = label_offset + time * scale + 'px';
     eventDiv.style.width = duration * scale + 'px';
     return eventDiv;

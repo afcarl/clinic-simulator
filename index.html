@@ -1,0 +1,350 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<head>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+<style>
+#timeline-viewer { position: relative; background: #fff; width: 100%; margin-bottom: 50px; }
+#timeline-legend { position: absolute; top: 0; left: 0px; height: 25px; }
+#timeline-labels { position: absolute; left: 40px; height: 100%; font-size: 12px; }
+#timeline-labels .label { position: absolute; width: 35px; top: 25px; padding-left: 5px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; z-index: 5; color: #000; font-weight: normal; }
+#timeline-legend .entry { display: inline-block; height: 15px; }
+#timeline-legend .marker { display: inline-block; width: 15px; height: 15px; vertical-align: middle; line-height: 15px; height: 15px; }
+#timeline-legend .label { display: inline-block; margin: 0 5px; font-size: 10px; line-height: 15px; height: 15px; color: #000; font-weight: normal; }
+#timeline-groups { position: relative; top: 40px; }
+#timeline-groups .timeline-group { margin-top: 15px; }
+#timeline-viewer .timeline { position: relative; height: 15px; background-color: #f0f0f0;}
+#timeline-viewer .timeline.odd { background-color: #e0e0e0; }
+#timeline-viewer .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px; color: #000; font-weight: normal; }
+#timeline-viewer .event { position: absolute; top: 0; font-size: 9px; line-height: 15px; height: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); border-bottom: 0; border-right: 0; color: rgba(0,0,0,0.3); }
+
+#timeline-viewer .waiting_to_arrive { background: #eee; opacity: 0.5; }
+#timeline-viewer .group_huddle { background: #eee; }
+#timeline-viewer .ct_atp_meeting { background: #6bb; }
+#timeline-viewer .pt_ct_meeting { background: #58c; }
+#timeline-viewer .pt_atp_meeting { background: #6b6; }
+#timeline-viewer .waiting_for_atp { background: #c55; }
+#timeline-viewer .waiting_for_ct { background: #eb5; }
+#timeline-viewer .waiting_for_pt { background: #999; }
+#timeline-viewer .checking_in { background: #ccc; }
+#timeline-viewer .checking_out { background: #ccc; }
+
+#parameter-browser { width: 600px; display: inline-block; }
+#parameter-form { }
+#parameter-form .form-field { }
+#parameter-form .form-field label { width: 130px; display: inline-block; }
+#parameter-form .form-field input { width: 30px;}
+#sim-params { display: inline-block; vertical-align:top; width:300px ; }
+#dist-params { display: inline-block; vertical-align:top; width:300px; }
+#monte-carlo-browser { display: inline-block; width: 30%; vertical-align:top; }
+#monte-carlo-form { }
+#monte-carlo-results { }
+
+#monte-carlo-results li span { margin-right: 10px; }
+
+#plots { }
+#plots .plot { width: 45%; height: 400px; margin-right: 10px; display: inline-block; }
+</style>
+</head>
+<body role="document">
+<div class="container-fluid" role="main">
+
+<div id="parameter-browser">
+<form id="parameter-form"></form>
+</div>
+<div id="monte-carlo-browser">
+<form id="monte-carlo-form"></form>
+<div id="monte-carlo-results">
+</div>
+</div>
+<div id="timeline-viewer"></div>
+<div id="plots"></div>
+
+</div><!-- .container -->
+
+<script>
+
+var APP = {
+  mc_results: [ ],
+};
+
+// create form controls for simulation parameters
+APP.init_forms = function(meta) {
+  // simulation parameters
+  var html = '<div id="sim-params">'
+  html += '<p>Simulation parameters</p>';
+  for (var i in meta.fields) {
+    var field = meta.fields[i];
+    html += '<div class="form-field"><label>' + field.label + '</label><input type="text" name="' + field.name + '" value="' + field.default + '" /></div>';
+  }
+  html += '</div>'; // #sim-params
+  html += '<div id="dist-params">';
+  html += '<p>Distributions parameters (min, max, mean, var)</p>';
+  for (var i in meta.distributions) {
+    var dist = meta.distributions[i];
+    var dist_fields = ['min', 'max', 'mean', 'variance'];
+    html += '<div class="form-field"><label>' + dist.name + '</label>';
+    for (var j in dist_fields) {
+      var name = (dist.name + '_' + dist_fields[j]);
+      var value = (dist[dist_fields[j]]);
+      html += '<input type="text" name="' + name + '" value="' + value + '" class="dist-param" />';
+    }
+    html += '</div>'; // .form-field
+  }
+  html += '</div>'; // #dist-params
+  html += '<button id="btn_sample" class="btn btn-sm btn-primary">Draw sample</button>';
+  document.getElementById('parameter-form').innerHTML = html;
+  document.getElementById('btn_sample').addEventListener("click", function(event) {
+    event.preventDefault();
+    var btn = this;
+    btn.disabled = true;
+    $.post('/sample', $('#parameter-form').serialize(), function(response) {
+      visualize_data(response);
+      btn.disabled = false;
+    }, 'json');
+  });
+  // Monte Carlo parameters
+  html = '<p>Monte Carlo</p><div class="form-field"><label>Name</label><input type="text" name="name" value="default" /></div>'
+  html += '<button id="btn_run_mc" class="btn btn-sm btn-primary">Run Monte Carlo</button>'
+  document.getElementById('monte-carlo-form').innerHTML = html;
+  document.getElementById('btn_run_mc').addEventListener("click", function(event) {
+    event.preventDefault();
+    var btn = this;
+    btn.innerHTML = 'Running...';
+    btn.disabled = true;
+    var params = $('#parameter-form').serialize();
+    $.post('/monte_carlo', params, function(response) {
+      APP.mc_results.push({
+        name: $("#monte-carlo-form [name='name']").val(),
+        data: response,
+        params: params
+      });
+      APP.update_mc_results();
+      APP.plot_mc_result(response);
+      btn.innerHTML = 'Run Monte Carlo';
+      btn.disabled = false;
+    }, 'json');
+  });
+
+};
+
+APP.update_mc_results = function() {
+  var div = document.getElementById('monte-carlo-results');
+  div.innerHTML = '';
+  var list = document.createElement('ul');
+  APP.mc_results.forEach(function(result) {
+    var item = document.createElement('li');
+    var label = document.createElement('span');
+    label.appendChild(document.createTextNode(result.name));
+
+    var btn_show_param = document.createElement('button');
+    btn_show_param.appendChild(document.createTextNode('Load params'));
+    btn_show_param.addEventListener("click", function(event) {
+      event.preventDefault();
+      var pairs = result.params.split("&");
+      pairs.forEach(function(pair) {
+        var tokens = pair.split('=');
+        var name = tokens[0], value = tokens[1];
+        var elements = document.querySelectorAll('input[name="' + name + '"]');
+        elements.forEach(function(element) {
+          element.value = value;
+        });
+      });
+    });
+
+    var btn_show_plots = document.createElement('button');
+    btn_show_plots.appendChild(document.createTextNode('Show plots'));
+    btn_show_plots.addEventListener("click", function(event) {
+      event.preventDefault();
+      APP.plot_mc_result(result.data);
+    });
+
+    item.appendChild(label);
+    item.appendChild(btn_show_param);
+    item.appendChild(btn_show_plots);
+    list.appendChild(item);
+  });
+  div.appendChild(list);
+}
+
+$.post('/meta', function(meta) {
+  APP.init_forms(meta);
+}, 'json');
+
+APP.plot_mc_result = function(times) {
+
+  var actor_ids = Object.keys(times)
+
+  var atp_ids = [], atp_times = [];
+  var ct_ids = [], ct_times = [];
+  var pt_ids = [], pt_times = [];
+  for (var i in actor_ids) {
+    var actor_id = actor_ids[i];
+    if (actor_id.startsWith('ATP')) {
+      atp_ids.push(actor_id);
+      atp_times.push(times[actor_id]);
+    }
+    if (actor_id.startsWith('CT')) {
+      ct_ids.push(actor_id);
+      ct_times.push(times[actor_id]);
+    }
+    if (actor_id.startsWith('PT')) {
+      pt_ids.push(actor_id);
+      pt_times.push(times[actor_id]);
+    }
+  }
+
+  var container = document.getElementById('plots');
+  container.innerHTML = '';
+
+  // make plots for pt
+  var states = Object.keys(pt_times[0]);
+  for (var state_index in states) {
+    var state = states[state_index];
+    var yData = [ ];
+    var colors = [ ];
+    var fillColors = [ ];
+    for (var i in pt_times) {
+      yData.push(pt_times[i][state]);
+      var angle = 180 * i / (pt_times.length - 1) + 20;
+      colors.push('hsl('+ angle +',50%'+',50%)');
+      fillColors.push('hsla('+ angle +',50%'+',50%,0.5)');
+    }
+    var data = [];
+    for (var i in pt_ids) {
+      var result = {
+        type: 'box',
+        y: yData[i],
+        name: pt_ids[i],
+        boxpoints: 'all',
+        jitter: 0.3,
+        whiskerwidth: 0.2,
+        fillcolor: fillColors[i],
+        marker: { size: 2, color: colors[i] },
+        line: { width: 1 }
+      };
+      data.push(result);
+    }
+    var layout = {
+      title: state,
+      yaxis: {
+          autorange: true,
+          showgrid: true,
+          zeroline: true,
+          dtick: 5,
+          gridcolor: 'rgba(0,0,0,0.1)',
+          gridwidth: 1,
+          zerolinecolor: 'rgba(0,0,0,0.25)',
+          zerolinewidth: 1
+      },
+      margin: { l: 30, r: 20, b: 30, t: 50 },
+      paper_bgcolor: 'rgb(243, 243, 243)',
+      plot_bgcolor: 'rgb(243, 243, 243)',
+      showlegend: false
+    };
+    var plotDiv = document.createElement('div');
+    container.appendChild(plotDiv);
+    plotDiv.id = 'plt_pt_' + state;
+    plotDiv.className = 'plot';
+    Plotly.newPlot(plotDiv.id, data, layout);
+  }
+};
+
+
+function visualize_data(sim) {
+
+  var label_offset = 40;
+  var scale = 7; // px per minute
+
+  var timeline_viewer = document.getElementById('timeline-viewer');
+  timeline_viewer.innerHTML = '';
+  var timeline_labels = document.createElement('div');
+  timeline_labels.id = 'timeline-labels';
+  // create timeline labels
+  for (var i = 0; i < sim.time; i+= 5) {
+    var label = document.createElement('div');
+    label.className = 'label';
+    min = (i % 60);
+    if (min < 10) min = '0' + min;
+    labelText = Math.floor(i / 60) + 5 + ":" + min;
+    label.appendChild(document.createTextNode(labelText));
+    label.style.left = (i * scale) + 'px';
+    timeline_labels.appendChild(label);
+  }
+
+  var actor_types = [ ];
+  var actor_groups = [ ];
+  for (var i in sim.actors) {
+    var actor = sim.actors[i];
+    if (actor_types.indexOf(actor.type) == -1) {
+      actor_types.push(actor.type);
+      actor_groups.push([ ]);
+    }
+    actor_groups[actor_groups.length-1].push(actor);
+  }
+
+  function create_event(className, time, duration) {
+    var eventDiv = document.createElement('div');
+    eventDiv.appendChild(document.createTextNode((duration+0.5)|0));
+    eventDiv.className = 'event ' + className;
+    eventDiv.style.left = label_offset + time * scale + 'px';
+    eventDiv.style.width = duration * scale + 'px';
+    return eventDiv;
+  }
+
+  var timeline_groups = document.createElement('div');
+  timeline_groups.id = 'timeline-groups';
+  var states = [ ];
+
+  for (var i in actor_groups) {
+    var timeline_group = document.createElement('div');
+    timeline_group.className = 'timeline-group';
+    timeline_group.id = actor_types[i] + '_timelines';
+    for (var j in actor_groups[i]) {
+      var actor = actor_groups[i][j];
+      var timeline = document.createElement('div');
+      timeline.className = 'timeline';
+      var label = document.createElement('div');
+      label.className = 'label';
+      label.appendChild(document.createTextNode(actor.id));
+      timeline.appendChild(label);
+      for (var k in actor.timeline) {
+        var state = actor.timeline[k];
+        if (state.duration > 0) {
+          var event = create_event(state.state, state.start, state.duration);
+          timeline.appendChild(event);
+          if (states.indexOf(state.state) == -1)
+            states.push(state.state);
+        }
+      }
+      if (j % 2 == 0) timeline.className += ' odd';
+      timeline_group.appendChild(timeline)
+    }
+    timeline_groups.appendChild(timeline_group);
+  }
+
+  var timeline_legend = document.createElement('div');
+  timeline_legend.id = 'timeline-legend';
+  for (var i in states) {
+    var entry = document.createElement('div');
+    entry.className = 'entry';
+    var marker = document.createElement('div');
+    marker.className = 'marker ' + states[i];
+    var label = document.createElement('div');
+    label.className = 'label';
+    label.appendChild(document.createTextNode(states[i]));
+    entry.appendChild(marker);
+    entry.appendChild(label);
+    timeline_legend.appendChild(entry);
+  }
+
+  timeline_viewer.appendChild(timeline_legend);
+  timeline_viewer.appendChild(timeline_labels);
+  timeline_viewer.appendChild(timeline_groups);
+
+}
+</script>
+</body>

@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib
 matplotlib.use('Agg')
-colors = ['#336699', '#aa3333', '#66aa33']
+colors = ['#3366aa', '#aa3333', '#66aa33']
 matplotlib.rcParams['axes.color_cycle'] = colors
 matplotlib.rcParams['xtick.labelsize'] = 10
 matplotlib.rcParams['font.family'] = 'sans-serif'
