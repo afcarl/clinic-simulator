@@ -140,6 +140,7 @@ APP.init_forms = function(meta) {
           params: params
         });
         APP.update_mc_results();
+        console.log(response);
         APP.plot_mc_result(response);
         btn.innerHTML = 'Run Monte Carlo';
         btn.disabled = false;
@@ -303,6 +304,37 @@ APP.plot_mc_result = function(times) {
   make_plots('pt', pt_ids, pt_times);
   make_plots('ct', ct_ids, ct_times);
   make_plots('atp', atp_ids, atp_times);
+
+  var trace = {
+    type: 'box',
+    x: times.end_times,
+    name: '',
+    boxpoints: 'all',
+    jitter: 0.25,
+    whiskerwidth: 0.2,
+    marker: { size: 2 },
+    line: { width: 1 }
+  };
+  var layout = {
+    title: 'Last patient check-out',
+    xaxis: {
+        autorange: true,
+        showgrid: true,
+        zeroline: true,
+        dtick: 5,
+        gridcolor: 'rgba(0,0,0,0.1)',
+        gridwidth: 1,
+        zerolinecolor: 'rgba(0,0,0,0.25)',
+        zerolinewidth: 1
+    },
+    margin: { l: 30, r: 20, b: 30, t: 50 },
+    showlegend: false
+  };
+  var plotDiv = document.createElement('div');
+  container.appendChild(plotDiv);
+  plotDiv.id = 'plt_end_times';
+  plotDiv.className = 'plot end_times';
+  Plotly.newPlot(plotDiv.id, [trace], layout);
 
   window.scrollTo(0, document.body.scrollHeight);
 };

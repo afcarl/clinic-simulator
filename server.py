@@ -74,12 +74,14 @@ class MonteCarloHandler(tornado.web.RequestHandler):
         # get structure of actor_times, and convert each 'state': time -> 'state': [time]
         actor_times = sim.get_times()
         total_times = {actor_id: {state: [ round(duration, 1) ] for (state, duration) in times.items()} for (actor_id, times) in  actor_times.items()}
+        end_times = []
         for i in range(n):
             actor_times = simulations[i].get_times()
             for actor_id, times in actor_times.items():
                 for key, duration in times.items():
                     total_times[actor_id][key].append(round(duration, 1))
-
+            end_times.append(simulations[i].time);
+        total_times['end_times'] = end_times;
         result = json.dumps(total_times, sort_keys=True);
         self.write(result)
 
