@@ -63,11 +63,12 @@ class Scheduler(object):
 
         pts, cts, atps = [ ], [ ], [ ]
 
-        self.scheduled_apt_times = [15 + i / sim.params['group_size'] * sim.params['group_interval'] for i in range(sim.params['n_pt'])]
+        #self.scheduled_apt_times = [15 + i / sim.params['group_size'] * sim.params['group_interval'] for i in range(len(sim.params['schedule']))]
 
-        for i, time in enumerate(self.scheduled_apt_times):
+        for i, time in enumerate(sim.params['schedule']):
             pt = Patient('PT_%02d' % (i+1))
-            arrival_time = time - 15 + sim.get_duration('pt_arrival_delay')
+            arrival_time = time + sim.get_duration('pt_arrival_delay')
+            arrival_time = max(0, arrival_time)
             pt.set_state('waiting_to_arrive', 0, arrival_time)
             pt.scheduled_time = time
             pt.meta['scheduled_time'] = time
@@ -209,6 +210,7 @@ class ClinicSimulation(Simulation):
             {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 1, 'type': 'int'},
             {'name': 'assign_cts', 'label': 'Pre-assign CTs', 'default': 1, 'type': 'int'}
 
+            {'name': 'schedule', 'label': 'Scheduled times', 'default': "15,15,15,15,30,30,45,60,75,75", 'type': 'list'}
         ]
         distributions = [
             {'name': 'pt_arrival_delay', 'min':  0, 'max':  60, 'mean':  5, 'variance': 30},

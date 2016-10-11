@@ -2,6 +2,7 @@ import clinic
 import json
 import tornado.ioloop
 import tornado.web
+import urllib
 
 def get_post_dict(postdata):
     data = { }
@@ -11,7 +12,16 @@ def get_post_dict(postdata):
     return data
 
 def get_params(post_dict, metadata):
-    params = { field['name']: int(post_dict[field['name']]) for field in metadata['fields'] }
+    params = { }
+    for field in metadata['fields']:
+        value = urllib.unquote(post_dict[field['name']])
+        if field['type'] == 'int':
+            value = int(value)
+        if field['type'] == 'float':
+            value = float(value)
+        if field['type'] == 'list':
+            value = map(int, value.split(','))
+        params[field['name']] = value
     params['distributions'] = {}
     for dist in metadata['distributions']:
         dist_props = { }
@@ -38,6 +48,7 @@ class SampleHandler(tornado.web.RequestHandler):
         meta = sim.get_metadata()
         data = get_post_dict(self.request.body)
         params = get_params(data, meta)
+        print params
         sim.run(params)
         result = sim.get_json();
         self.write(result)
