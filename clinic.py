@@ -56,7 +56,6 @@ class AttendingPhysician(Actor):
         if self.state == 'ct_atp_meeting':
             self.set_state('waiting_for_pt', sim.time)
 
-
 class Scheduler(object):
 
     def initialize(self, sim):
@@ -202,23 +201,20 @@ class ClinicSimulation(Simulation):
 
     def get_metadata(self):
         fields = [
-            {'name': 'n_pt', 'label': 'Patients', 'default': 12, 'type': 'int'},
             {'name': 'n_atp', 'label': 'Attendings', 'default': 2, 'type': 'int'},
             {'name': 'n_ct', 'label': 'Clinical Teams', 'default': 4, 'type': 'int'},
-            {'name': 'group_size', 'label': 'Size of groups', 'default': 3, 'type': 'int'},
-            {'name': 'group_interval', 'label': 'Arrival interval ', 'default': 15, 'type': 'int'},
             {'name': 'assign_pts', 'label': 'Pre-assign patients', 'default': 1, 'type': 'int'},
-            {'name': 'assign_cts', 'label': 'Pre-assign CTs', 'default': 1, 'type': 'int'}
-
+            {'name': 'assign_cts', 'label': 'Pre-assign CTs', 'default': 1, 'type': 'int'},
             {'name': 'schedule', 'label': 'Scheduled times', 'default': "15,15,15,15,30,30,45,60,75,75", 'type': 'list'}
         ]
+
         distributions = [
-            {'name': 'pt_arrival_delay', 'min':  0, 'max':  60, 'mean':  5, 'variance': 30},
-            {'name': 'checkin',          'min':  2, 'max':  10, 'mean':  5, 'variance':  3},
-            {'name': 'pt_ct_meeting',    'min': 10, 'max':  60, 'mean': 25, 'variance': 30},
-            {'name': 'ct_atp_meeting',   'min':  2, 'max':   8, 'mean':  4, 'variance':  2},
-            {'name': 'pt_atp_meeting',   'min': 12, 'max':  18, 'mean': 15, 'variance':  3},
-            {'name': 'checkout',         'min':  2, 'max':  10, 'mean':  5, 'variance':  3}
+            {'name': 'pt_arrival_delay', 'min':-60, 'max':  60, 'mean':  5, 'variance': 266},
+            {'name': 'checkin',          'min':  2, 'max':  10, 'mean':  5, 'variance':   3},
+            {'name': 'pt_ct_meeting',    'min': 10, 'max':  60, 'mean': 33, 'variance': 253},
+            {'name': 'ct_atp_meeting',   'min':  0, 'max':  25, 'mean': 10, 'variance':  25},
+            {'name': 'pt_atp_meeting',   'min':  2, 'max':  45, 'mean': 20, 'variance':  96},
+            {'name': 'checkout',         'min':  0, 'max':  32, 'mean':  5, 'variance':  48}
         ]
         return {'fields': fields, 'distributions': distributions}
 
