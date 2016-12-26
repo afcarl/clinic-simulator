@@ -5,7 +5,7 @@ class Patient(Actor):
 
     def __init__(self, id):
         Actor.__init__(self, id)
-        self.time_in_state = {'waiting_for_ct_after': 0, 'waiting_for_atp': 0}
+        self.time_in_state = {'waiting_for_ct_after': 0, 'waiting_for_atp': 0, 'checking_in': 0, 'checking_out': 0, 'waiting_for_ct_before': 0, 'pt_ct_meeting': 0, 'pt_atp_meeting': 0}
 
     def update(self, sim):
         if self.state == 'waiting_to_arrive':
@@ -38,6 +38,8 @@ class ClinicalTeam(Actor):
         if self.state == 'pt_ct_meeting':
             self.set_state('waiting_for_atp', sim.time)
         if self.state == 'ct_atp_meeting':
+            self.set_state('waiting_for_atp_pt_meeting', sim.time)
+        if self.state == 'pt_atp_ct_meeting':
             self.set_state('waiting_for_pt', sim.time)
 
 
@@ -48,7 +50,7 @@ class AttendingPhysician(Actor):
         self.assigned_ct_ids = [ ]
         self.assigned_pt_ids = [ ]
         self.can_see_pt_ids = [ ] # atp can only see pt after meeting with ct
-        self.time_in_state = {'waiting_for_ct': 0, 'waiting_for_first_ct': 0}
+        self.time_in_state = {'waiting_for_first_ct': 0}
 
     def update(self, sim):
         if self.state == 'pt_atp_meeting':
@@ -126,6 +128,8 @@ class Scheduler(object):
             duration = sim.get_duration('pt_atp_meeting')
             pt.set_state('pt_atp_meeting', sim.time, duration, {'meeting_with': atp.id})
             atp.set_state('pt_atp_meeting', sim.time, duration, {'meeting_with': pt.id})
+            for ct in sim.get_actors('ClinicalTeam', 'waiting_for_atp_pt_meeting'):
+                ct.set_state('pt_atp_ct_meeting', sim.time, duration, {'meeting_with': pt.id})
 
         def create_ct_atp_meeting(ct, atp):
             duration = sim.get_duration('ct_atp_meeting')
@@ -209,7 +213,7 @@ class ClinicSimulation(Simulation):
         ]
 
         distributions = [
-            {'name': 'pt_arrival_delay', 'min':-60, 'max':  60, 'mean':  5, 'variance': 266},
+            {'name': 'pt_arrival_delay', 'min':-60, 'max':  60, 'mean':  -6, 'variance': 266},
             {'name': 'checkin',          'min':  2, 'max':  10, 'mean':  5, 'variance':   3},
             {'name': 'pt_ct_meeting',    'min': 10, 'max':  60, 'mean': 33, 'variance': 253},
             {'name': 'ct_atp_meeting',   'min':  0, 'max':  25, 'mean': 10, 'variance':  25},

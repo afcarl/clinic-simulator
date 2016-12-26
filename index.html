@@ -9,16 +9,16 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
 <style>
 body { font-size: 12px; }
-#timeline-viewer { position: relative; background: #fff; width: 100%; margin-bottom: 50px; }
-#timeline-legend { position: absolute; top: 0; left: 0px; height: 25px; }
+#timeline-viewer { position: relative; background: #fff; width: 100%; margin-bottom: 150px; }
+#timeline-legend { position: absolute; top: 0; left: 0px; height: 50px;}
 #timeline-labels { position: absolute; left: 40px; height: 100%; font-size: 12px; }
 #timeline-viewer .label { color: #000; padding: 0; font-weight: normal; text-align: left; }
-#timeline-labels .label { position: absolute; width: 60px; top: 25px; padding-left: 2px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; }
+#timeline-labels .label { position: absolute; width: 60px; top: 75px; padding-left: 2px; border-left: 1px solid rgba(0,0,0,0.05); height: 100%; }
 #timeline-labels .label.hour { border-color: rgba(0,0,0,0.15); font-weight: bold; }
 #timeline-legend .entry { display: inline-block; height: 15px; }
 #timeline-legend .marker { display: inline-block; width: 15px; height: 15px; vertical-align: middle; line-height: 15px; height: 15px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);}
 #timeline-legend .label { display: inline-block; margin: 0 5px; font-size: 10px; line-height: 15px; height: 15px;  }
-#timeline-groups { position: relative; top: 40px; }
+#timeline-groups { position: relative; top: 90px; }
 #timeline-groups .timeline-group { margin-top: 15px; }
 #timeline-viewer .timeline { position: relative; height: 15px; }
 #timeline-viewer .timeline div.label { height: 15px; line-height: 15px; font-size: 10px; width: 40px;  }
@@ -30,6 +30,7 @@ body { font-size: 12px; }
 #timeline-viewer .pt_ct_meeting         { background: hsl(220,50%,60%); }
 #timeline-viewer .ct_atp_meeting        { background: hsl(180,50%,60%); }
 #timeline-viewer .pt_atp_meeting        { background: hsl(120,50%,60%); }
+#timeline-viewer .pt_atp_ct_meeting        { background: hsl(120,50%,60%); }
 #timeline-viewer .waiting_for_atp       { background: hsl(0,80%,60%); }
 #timeline-viewer .waiting_for_ct_before { background: hsl(45,90%,80%); }
 #timeline-viewer .waiting_for_ct_after  { background: hsl(30,80%,65%); }
@@ -214,6 +215,7 @@ APP.plot_mc_result = function(times) {
   var atp_ids = [], atp_times = [];
   var ct_ids = [], ct_times = [];
   var pt_ids = [], pt_times = [];
+  var pt_visit_times = [];
   for (var i in actor_ids) {
     var actor_id = actor_ids[i];
     if (actor_id.startsWith('ATP')) {
@@ -238,7 +240,7 @@ APP.plot_mc_result = function(times) {
     for (var state_index in states) {
       var state = states[state_index];
       var range = [0, 60];
-      /*
+      
       if (prefix == 'pt' && state == 'waiting_for_atp')
         range = [0, 60];
       if (prefix == 'ct' && state == 'waiting_for_atp')
@@ -251,7 +253,8 @@ APP.plot_mc_result = function(times) {
         range = [0, 30];
       if (state == 'waiting_for_first_ct')
         range = [15, 60];
-      */
+      if (state == 'pt_visit_time')
+        range = [15, 180];
       var yData = [ ];
       var colors = [ ];
       var fillColors = [ ];
@@ -282,7 +285,7 @@ APP.plot_mc_result = function(times) {
             range: range,
             showgrid: true,
             zeroline: true,
-            dtick: 5,
+            dtick: 15,
             gridcolor: 'rgba(0,0,0,0.1)',
             gridwidth: 1,
             zerolinecolor: 'rgba(0,0,0,0.25)',
@@ -321,7 +324,7 @@ APP.plot_mc_result = function(times) {
         autorange: true,
         showgrid: true,
         zeroline: true,
-        dtick: 5,
+        dtick: 15,
         gridcolor: 'rgba(0,0,0,0.1)',
         gridwidth: 1,
         zerolinecolor: 'rgba(0,0,0,0.25)',
@@ -336,12 +339,32 @@ APP.plot_mc_result = function(times) {
   plotDiv.className = 'plot end_times';
   Plotly.newPlot(plotDiv.id, [trace], layout);
 
+  // patient visit time
+  var states = ['waiting_for_ct_after', 'waiting_for_atp', 'checking_in', 'checking_out', 'waiting_for_ct_before', 'pt_ct_meeting', 'pt_atp_meeting'];
+  var pt_visit_times = [];
+  for (var i in actor_ids) {
+    var actor_id = actor_ids[i];
+    var pt_visit_time = [];
+    if (actor_id.startsWith('PT')) {
+      for (var j in times[actor_id][states[0]]) {
+        var total = 0;
+        for (var k in states) {
+          total += times[actor_id][states[k]][j];
+        }
+        pt_visit_time.push(total);
+      }
+      pt_visit_times.push({'pt_visit_time':pt_visit_time});
+    }
+  }
+
+  make_plots('pt', pt_ids, pt_visit_times);
+
   window.scrollTo(0, document.body.scrollHeight);
 };
 
 function visualize_data(sim) {
 
-  var label_offset = 40;
+  var label_offset = 90;
   var scale = 5; // px per minute
 
   var timeline_viewer = document.getElementById('timeline-viewer');
